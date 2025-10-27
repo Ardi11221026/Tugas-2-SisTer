@@ -1,0 +1,23 @@
+openapi: 3.0.0
+info:
+  title: Distributed Sync System API (minimal)
+  version: "0.1.0"
+paths:
+  /lock/acquire:
+    post:
+      summary: Acquire lock
+  /lock/release:
+    post:
+      summary: Release lock
+  /queue/push:
+    post:
+      summary: Push message to distributed queue
+  /queue/pop:
+    post:
+      summary: Pop message from distributed queue
+  /cache/read:
+    get:
+      summary: Read key from cache node
+  /cache/write:
+    post:
+      summary: Write key to cache node

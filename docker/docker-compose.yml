@@ -1,0 +1,38 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:7
+    ports: ['6379:6379']
+  node1:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.node
+    environment:
+      - NODE_ID=node1
+      - NODE_PORT=8001
+      - REDIS_URL=redis://redis:6379/0
+    ports: ['8001:8001']
+    depends_on:
+      - redis
+  node2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.node
+    environment:
+      - NODE_ID=node2
+      - NODE_PORT=8002
+      - REDIS_URL=redis://redis:6379/0
+    ports: ['8002:8002']
+    depends_on:
+      - redis
+  node3:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.node
+    environment:
+      - NODE_ID=node3
+      - NODE_PORT=8003
+      - REDIS_URL=redis://redis:6379/0
+    ports: ['8003:8003']
+    depends_on:
+      - redis
