@@ -1,67 +1,232 @@
-# Distributed Sync System (Minimal Runnable)
+##### **1. Menjalankan Sistem dengan:**
 
-This project is a **minimal, runnable** implementation of the *required* parts of the assignment:
-- Distributed Lock Manager (leader-based simplified Raft-like heartbeat election)
-- Distributed Queue System (consistent hashing + Redis persistence)
-- Distributed Cache Coherence (simplified MESI-like invalidation)
-- Containerized (Docker + Docker Compose)
+**Perintahnya:**
 
-**This is a minimal educational demo** suitable for local testing and demo. It is not a production-ready Raft implementation.
-
-## Requirements
-- Docker & Docker Compose
-- (Optional) Python 3.8+ to run locally without Docker
-
-## Quickstart (Docker Compose)
-1. Build & start services:
-```bash
 docker compose up --build
-```
-2. This will start:
-- `redis` on port 6379
-- `node1` on port 8001
-- `node2` on port 8002
-- `node3` on port 8003
 
-3. Demo examples (run from host):
-- Check leader:
-```bash
-curl http://localhost:8001/leader
-curl http://localhost:8002/leader
-curl http://localhost:8003/leader
-```
 
-- Acquire exclusive lock (node1):
-```bash
-curl -X POST http://localhost:8001/lock/acquire -H "Content-Type: application/json" -d '{"name":"resA","mode":"exclusive","owner":"client1"}'
-```
 
-- Release lock:
-```bash
-curl -X POST http://localhost:8001/lock/release -H "Content-Type: application/json" -d '{"name":"resA","owner":"client1"}'
-```
 
-- Push message to queue:
-```bash
-curl -X POST http://localhost:8001/queue/push -H "Content-Type: application/json" -d '{"key":"user:123","payload":"hello"}'
-```
 
-- Pop message (consumer):
-```bash
-curl http://localhost:8002/queue/pop
-```
+##### **2. Cek Kesehatan Node:**
 
-- Cache set/get:
-```bash
-curl -X POST http://localhost:8003/cache/set -H "Content-Type: application/json" -d '{"key":"k1","value":"v1"}'
-curl http://localhost:8002/cache/get?k=k1
-```
+**Perintahnya:**
 
-## Project structure
-See `src/` for node implementations and `docker/` for Dockerfiles and compose.
+\- curl http://localhost:8001/health
 
-## Notes
-- Leader election is simplified: nodes send/receive heartbeats; if leader missing, others elect a leader by highest node id that is alive.
-- Queue persistence and locks use Redis for simplicity and durability.
-- Cache coherence uses simple invalidation messages broadcast to peers.
+\- curl http://localhost:8002/health
 
+\- curl http://localhost:8003/health
+
+
+
+**Outputnya:**
+
+{"status":"ok","node":"node1"}
+
+{"status":"ok","node":"node2"}
+
+{"status":"ok","node":"node3"}
+
+
+
+
+
+##### **3. Distributed Lock Manager**
+
+###### **a. Acquire Exclusive Lock**
+
+**Perintahnya:**
+
+curl -X POST http://localhost:8001/lock/acquire \\
+
+     -H "Content-Type: application/json" \\
+
+     -d '{"name":"resource1","mode":"exclusive","owner":"clientA"}'
+
+
+
+**Outputnya:** {"ok": true}
+
+
+
+artinya Node1 berhasil mendapatkan exclusive lock untuk resource1 atas nama clientA.
+
+
+
+###### **b. Coba Ambil Lock dari Node Lain**
+
+**Perintahnya:**
+
+curl -X POST http://localhost:8002/lock/acquire \\
+
+     -H "Content-Type: application/json" \\
+
+     -d '{"name":"resource1","mode":"exclusive","owner":"clientB"}'
+
+**Outputnya:** {"ok": false, "reason": "locked"}
+
+
+
+artinya Node2 gagal mengambil lock, karena resource tersebut sedang dikunci oleh clientA. Data lock ini disimpan di Redis, jadi semua node melihat status yang sama.
+
+
+
+###### **c. Release Lock**
+
+**Perintahnya:**
+
+curl -X POST http://localhost:8001/lock/release \\
+
+     -H "Content-Type: application/json" \\
+
+     -d '{"name":"resource1","mode":"exclusive","owner":"clientA"}'
+
+
+
+**Outputnya:** {"ok": true}
+
+
+
+Lock dilepas dan sekarang bisa diambil lagi oleh node lain.
+
+
+
+
+
+##### **4. Distributed Queue System**
+
+Sekarang kita uji sistem antrean terdistribusi.
+
+Konsepnya: pesan dikirim ke antrean dan disimpan di Redis.
+
+Jika satu node gagal, pesan tetap dapat diambil oleh node lain.
+
+
+
+###### **a. Push Pesan ke Queue**
+
+**Perintahnya:**
+
+curl -X POST http://localhost:8002/queue/push \\
+
+     -H "Content-Type: application/json" \\
+
+     -d '{"queue":"orders","payload":{"order\_id":1,"item":"book"}}'
+
+
+
+**Outputnya:** {"ok": true}
+
+
+
+###### **b. Pop Pesan dari Queue**
+
+**Perintahnya:**
+
+curl -X POST http://localhost:8003/queue/pop \\
+
+     -H "Content-Type: application/json" \\
+
+     -d '{"queue":"orders","payload":{}}'
+
+
+
+**Outputnya:** {"ok": true, "item": {"order\_id": 1, "item": "book"}}
+
+
+
+artinya Node3 berhasil mengambil pesan yang dikirim oleh Node2, menandakan bahwa state queue konsisten di seluruh cluster.
+
+
+
+###### **c. Simulasi Node Failure**
+
+**Perintahnya:**
+
+docker stop distributed-sync-system-node2-1
+
+
+
+Lalu kita ulangi push/pop melalui node1.
+
+Sistem tetap berjalan karena Redis menyimpan antrean global.
+
+
+
+
+
+##### **5. Distributed Cache Coherence (MESI)**
+
+Selanjutnya kita uji cache coherence antar node.
+
+###### **a. Write ke Cache**
+
+**Perintahnya:**
+curl -X POST http://localhost:8001/cache/write \\
+
+     -H "Content-Type: application/json" \\
+
+     -d '{"key":"temperature","value":25}'
+
+
+
+**Outputnya:** {"ok": true}
+
+
+
+###### **b. Read dari Node Lain**
+
+**Perintahnya:**
+
+curl "http://localhost:8003/cache/read?key=temperature"
+
+
+
+**Outputnya:** {"ok": true, "value": {"state":"M","value":25}}
+
+
+
+Nilai dibaca secara konsisten di node lain.
+
+Jika ada penulisan baru, node lain akan menandai cache mereka sebagai invalid (state I) dan menarik nilai baru dari Redis.
+
+
+
+
+
+##### **6. Monitoring \& Metrics**
+
+**Perintahnya:**
+
+curl http://localhost:8001/metrics
+
+
+
+**Outputnya:** {"metrics": "see logs"}
+
+
+
+Semua metrik juga dapat dilihat di log container, termasuk jumlah locks acquired, queue push/pop, dan aktivitas cache.
+
+
+
+
+
+##### **7. Simulasi Recovery**
+
+Terakhir, kita hidupkan kembali node2:
+
+**Perintahnya:**
+
+docker start distributed-sync-system-node2-1
+
+
+
+Setelah node hidup, ia otomatis sinkron dengan Redis dan mulai menerima permintaan lagi.
+
+Dengan demikian, sistem berhasil menunjukkan:
+
+* Konsistensi data antar node
+* Toleransi terhadap kegagalan node
+* Mekanisme sinkronisasi yang stabil di lingkungan terdistribusi
