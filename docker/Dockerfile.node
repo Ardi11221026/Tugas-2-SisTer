@@ -1,7 +1,18 @@
 FROM python:3.10-slim
+
 WORKDIR /app
+
+# Copy dependencies
 COPY requirements.txt .
+
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-COPY src/ src/
+
+# Copy application source
+COPY src/ .
+
+# Environment setup
 ENV PYTHONUNBUFFERED=1
-CMD ["uvicorn", "src.nodes.base_node:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Default command (boleh di-override oleh docker-compose)
+CMD ["python", "main.py"]

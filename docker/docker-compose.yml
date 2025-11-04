@@ -1,8 +1,11 @@
 version: '3.8'
+
 services:
   redis:
     image: redis:7
-    ports: ['6379:6379']
+    ports:
+      - '6379:6379'
+
   node1:
     build:
       context: ..
@@ -11,9 +14,12 @@ services:
       - NODE_ID=node1
       - NODE_PORT=8001
       - REDIS_URL=redis://redis:6379/0
-    ports: ['8001:8001']
+    ports:
+      - '8001:8001'
+    command: ["python", "main.py"]
     depends_on:
       - redis
+
   node2:
     build:
       context: ..
@@ -22,9 +28,12 @@ services:
       - NODE_ID=node2
       - NODE_PORT=8002
       - REDIS_URL=redis://redis:6379/0
-    ports: ['8002:8002']
+    ports:
+      - '8002:8002'
+    command: ["python", "main.py"]
     depends_on:
       - redis
+
   node3:
     build:
       context: ..
@@ -33,6 +42,8 @@ services:
       - NODE_ID=node3
       - NODE_PORT=8003
       - REDIS_URL=redis://redis:6379/0
-    ports: ['8003:8003']
+    ports:
+      - '8003:8003'
+    command: ["python", "main.py"]
     depends_on:
       - redis
